@@ -2,6 +2,25 @@
 
 A machine learning pipeline for classifying sleep stages from mouse EEG/EMG data using Random Forest models with hierarchical and standard classification approaches.
 
+## Table of contents
+
+| **Section** | **Description** |
+|:-|:-|
+| [Project Organization](#project-organization) | File structure of the project |
+| [Features](#features) | What this pipeline accomplishes |
+| [Installation](#installation) | How to install this repo |
+| [Quick Start](#quick-start) | How to start using this pipeline |
+| [Usage Examples](#usage-examples) | Examples using this pipeline |
+| [Configuration](#configuration) | How to configure to your needs |
+| [Data Format](#data-format) | Expected data format |
+| [Sleep Stage Classification](#sleep-stage-classification) | The stages of sleep this pipeline classifies |
+| [Development](#development) | How to implement this pipeline in your development |
+| [Contributing](#contributing) | How you can contribute to the project |
+| [License](#license) | Project licensing |
+| [Citation](#citation) | How to cite |
+| [Troubleshooting](#troubleshooting) | Some troubleshooting tips |
+| [Support](#support) | Get support using this pipeline |
+
 ## Project Organization
 
 ```
@@ -65,7 +84,7 @@ A machine learning pipeline for classifying sleep stages from mouse EEG/EMG data
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/davidfrivas/eeg_random_forest.git
 cd eeg_random_forest
 ```
 

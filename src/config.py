@@ -63,7 +63,7 @@ SLEEP_STAGE_MAPPING = {
 }
 
 # Sleep stages to exclude from analysis
-EXCLUDE_STAGES = {"Unknown", "Artifact"}
+EXCLUDE_STAGES = {"Unknown", "Artifact", "IS N-R", "IS R-N"}
 EXCLUDE_SUFFIX = " X"
 
 # Model training parameters

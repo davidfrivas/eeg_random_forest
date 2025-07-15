@@ -50,9 +50,10 @@ A machine learning pipeline for classifying sleep stages from mouse EEG/EMG data
 │   ├── config.py      <- Configuration settings
 │   │
 │   ├── data/          <- Scripts to download or generate data
+│   │   ├── clean_data.py
 │   │   ├── extract_features.py
 │   │   ├── merge_data.py
-│   │   └── preprocessing.py
+│   │   └── resolve_mismatch.py
 │   │
 │   ├── features/      <- Scripts to turn raw data into features for modeling
 │   │   └── build_features.py

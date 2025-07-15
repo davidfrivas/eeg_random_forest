@@ -5,7 +5,7 @@ Data processing modules for EEG/EMG feature extraction, merging, and cleaning.
 from .extract_features import EEGFeatureExtractor, extract_features_from_directory
 from .merge_data import DataMerger, merge_data_directory
 from .resolve_mismatch import MismatchResolver, resolve_all_mismatches, diagnose_file
-from .clean_data import SleepStageDataCleaner, clean_all_merged_files, clean_single_merged_file, preview_cleaning_effects
+from .clean_data import SleepStageDataCleaner, clean_all_merged_files, clean_single_merged_file
 
 __all__ = [
     # Feature extraction
@@ -24,6 +24,5 @@ __all__ = [
     # Data cleaning
     'SleepStageDataCleaner',
     'clean_all_merged_files',
-    'clean_single_merged_file',
-    'preview_cleaning_effects'
+    'clean_single_merged_file'
 ]

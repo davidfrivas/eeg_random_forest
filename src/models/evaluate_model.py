@@ -43,6 +43,12 @@ class ModelEvaluator:
         """
         results = {}
         
+        # Convert to numpy arrays if needed
+        if isinstance(y_true, pd.Series):
+            y_true = y_true.values
+        if isinstance(y_pred, pd.Series):
+            y_pred = y_pred.values
+        
         # Basic metrics
         results['accuracy'] = accuracy_score(y_true, y_pred)
         results['balanced_accuracy'] = balanced_accuracy_score(y_true, y_pred)
@@ -71,6 +77,7 @@ class ModelEvaluator:
         if model is not None and hasattr(model, 'feature_importances_'):
             importance_df = self._get_feature_importance(model, feature_names)
             results['feature_importance'] = importance_df
+            logger.info(f"Calculated feature importance for {len(importance_df)} features")
         
         # Generate visualizations if requested
         if self.save_plots and output_dir:
@@ -117,14 +124,28 @@ class ModelEvaluator:
         return comparison_df
     
     def _get_feature_importance(self, model, feature_names: Optional[List[str]]) -> pd.DataFrame:
-        """Extract and format feature importance."""
-        if feature_names is None:
-            feature_names = [f'feature_{i}' for i in range(len(model.feature_importances_))]
+        """Extract and format feature importance with proper feature names."""
+        importances = model.feature_importances_
+        
+        # Use provided feature names, or create generic ones if none provided
+        if feature_names is not None and len(feature_names) == len(importances):
+            names = feature_names
+            logger.info(f"Using provided feature names: {len(names)} features")
+        else:
+            names = [f'feature_{i}' for i in range(len(importances))]
+            if feature_names is not None:
+                logger.warning(f"Feature name count mismatch: provided {len(feature_names)}, "
+                            f"expected {len(importances)}. Using generic names.")
+            else:
+                logger.warning("No feature names provided, using generic names.")
         
         importance_df = pd.DataFrame({
-            'feature': feature_names,
-            'importance': model.feature_importances_
+            'feature': names,
+            'importance': importances
         }).sort_values('importance', ascending=False)
+        
+        # Log top features for debugging
+        logger.info(f"Top 5 important features: {importance_df.head()['feature'].tolist()}")
         
         return importance_df
     
@@ -146,7 +167,7 @@ class ModelEvaluator:
                 output_dir / 'feature_importance.png'
             )
         
-        # Class distribution comparison
+        # Class distribution comparison - FIXED
         self._plot_class_distribution(
             y_true, y_pred, 
             output_dir / 'class_distribution.png'
@@ -177,9 +198,13 @@ class ModelEvaluator:
         
         # Plot top N features
         top_features = importance_df.head(top_n)
-        sns.barplot(data=top_features, x='importance', y='feature', orient='h')
-        plt.title(f'Top {top_n} Feature Importance')
+        
+        # Create horizontal bar plot
+        plt.barh(range(len(top_features)), top_features['importance'].values)
+        plt.yticks(range(len(top_features)), top_features['feature'].values)
         plt.xlabel('Importance')
+        plt.title(f'Top {top_n} Feature Importance')
+        plt.gca().invert_yaxis()  # Highest importance at top
         plt.tight_layout()
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
@@ -187,24 +212,90 @@ class ModelEvaluator:
         logger.info(f"Saved feature importance plot to {save_path}")
     
     def _plot_class_distribution(self, y_true, y_pred, save_path: Path):
-        """Plot class distribution comparison."""
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
-        
-        # True distribution
-        true_counts = pd.Series(y_true).value_counts()
-        ax1.pie(true_counts.values, labels=true_counts.index, autopct='%1.1f%%')
-        ax1.set_title('True Class Distribution')
-        
-        # Predicted distribution
-        pred_counts = pd.Series(y_pred).value_counts()
-        ax2.pie(pred_counts.values, labels=pred_counts.index, autopct='%1.1f%%')
-        ax2.set_title('Predicted Class Distribution')
-        
-        plt.tight_layout()
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        logger.info(f"Saved class distribution plot to {save_path}")
+        """Plot class distribution comparison - FIXED VERSION."""
+        try:
+            # Get unique classes from both true and predicted labels
+            all_classes = sorted(set(list(y_true) + list(y_pred)))
+            
+            # Count occurrences
+            true_counts = pd.Series(y_true).value_counts()
+            pred_counts = pd.Series(y_pred).value_counts()
+            
+            # Ensure all classes are represented (fill missing with 0)
+            for cls in all_classes:
+                if cls not in true_counts:
+                    true_counts[cls] = 0
+                if cls not in pred_counts:
+                    pred_counts[cls] = 0
+            
+            # Sort by class name for consistent ordering
+            true_counts = true_counts.reindex(all_classes)
+            pred_counts = pred_counts.reindex(all_classes)
+            
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+            
+            # True distribution
+            colors1 = plt.cm.Set3(np.linspace(0, 1, len(all_classes)))
+            wedges1, texts1, autotexts1 = ax1.pie(
+                true_counts.values, 
+                labels=true_counts.index, 
+                autopct='%1.1f%%',
+                colors=colors1,
+                startangle=90
+            )
+            ax1.set_title('True Class Distribution')
+            
+            # Predicted distribution
+            colors2 = plt.cm.Set3(np.linspace(0, 1, len(all_classes)))
+            wedges2, texts2, autotexts2 = ax2.pie(
+                pred_counts.values, 
+                labels=pred_counts.index, 
+                autopct='%1.1f%%',
+                colors=colors2,
+                startangle=90
+            )
+            ax2.set_title('Predicted Class Distribution')
+            
+            plt.tight_layout()
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            logger.info(f"Saved class distribution plot to {save_path}")
+            
+        except Exception as e:
+            logger.error(f"Error creating class distribution plot: {e}")
+            logger.error(f"y_true shape: {np.array(y_true).shape}, unique values: {np.unique(y_true)}")
+            logger.error(f"y_pred shape: {np.array(y_pred).shape}, unique values: {np.unique(y_pred)}")
+            
+            # Create a fallback simple bar plot
+            try:
+                fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+                
+                all_classes = sorted(set(list(y_true) + list(y_pred)))
+                true_counts = [sum(y_true == cls) for cls in all_classes]
+                pred_counts = [sum(y_pred == cls) for cls in all_classes]
+                
+                x = np.arange(len(all_classes))
+                width = 0.35
+                
+                ax.bar(x - width/2, true_counts, width, label='True', alpha=0.8)
+                ax.bar(x + width/2, pred_counts, width, label='Predicted', alpha=0.8)
+                
+                ax.set_xlabel('Sleep Stage')
+                ax.set_ylabel('Count')
+                ax.set_title('Class Distribution Comparison')
+                ax.set_xticks(x)
+                ax.set_xticklabels(all_classes, rotation=45)
+                ax.legend()
+                
+                plt.tight_layout()
+                plt.savefig(save_path, dpi=300, bbox_inches='tight')
+                plt.close()
+                
+                logger.info(f"Saved fallback class distribution plot to {save_path}")
+                
+            except Exception as e2:
+                logger.error(f"Failed to create fallback plot: {e2}")
     
     def _plot_model_comparison(self, comparison_df: pd.DataFrame, output_dir: Path):
         """Plot model comparison metrics."""
@@ -215,15 +306,15 @@ class ModelEvaluator:
         axes = axes.flatten()
         
         for i, metric in enumerate(metrics):
-            if i < len(axes):
+            if i < len(axes) and metric in comparison_df.columns:
                 ax = axes[i]
                 sns.barplot(data=comparison_df, x='model', y=metric, ax=ax)
                 ax.set_title(f'{metric.replace("_", " ").title()}')
                 ax.tick_params(axis='x', rotation=45)
         
-        # Hide unused subplot
-        if len(metrics) < len(axes):
-            axes[-1].set_visible(False)
+        # Hide unused subplots
+        for i in range(len(metrics), len(axes)):
+            axes[i].set_visible(False)
         
         plt.tight_layout()
         plt.savefig(output_dir / 'model_comparison.png', dpi=300, bbox_inches='tight')
@@ -241,6 +332,8 @@ class ModelEvaluator:
             model_name: Name of the model
             output_file: Path to save the report
         """
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        
         with open(output_file, 'w') as f:
             f.write(f"Sleep Stage Classification - Model Evaluation Report\n")
             f.write("=" * 60 + "\n\n")
@@ -310,6 +403,13 @@ def evaluate_saved_model(model_path: Path, test_data: pd.DataFrame,
     
     logger.info(f"Loading model from {model_path}")
     model = joblib.load(model_path)
+    
+    # Load feature names if available
+    feature_names_path = model_path.parent / f"{model_path.stem.replace('_model', '')}_feature_names.joblib"
+    if feature_names_path.exists():
+        saved_feature_names = joblib.load(feature_names_path)
+        logger.info(f"Loaded saved feature names: {len(saved_feature_names)} features")
+        feature_names = saved_feature_names
     
     # Prepare test data
     X_test = test_data[feature_names]

@@ -37,10 +37,10 @@ class SleepStageClassifier:
         self.evaluator = ModelEvaluator()
     
     def train_standard_model(self, X_train: pd.DataFrame, y_train: pd.Series,
-                           X_test: pd.DataFrame, y_test: pd.Series,
-                           apply_postprocessing: bool = True,
-                           save_model: bool = True,
-                           model_dir: Optional[Path] = None) -> Dict:
+                       X_test: pd.DataFrame, y_test: pd.Series,
+                       apply_postprocessing: bool = True,
+                       save_model: bool = True,
+                       model_dir: Optional[Path] = None) -> Dict:
         """
         Train a standard multiclass Random Forest model.
         
@@ -57,6 +57,10 @@ class SleepStageClassifier:
             Dictionary containing model performance metrics
         """
         logger.info("Training standard multiclass model")
+        
+        # Ensure feature names are preserved
+        if self.feature_names is None:
+            self.feature_names = X_train.columns.tolist()
         
         # Set class weights
         self.model_params['class_weight'] = self._calculate_class_weights(y_train)
@@ -78,11 +82,16 @@ class SleepStageClassifier:
             
             if smoothed_acc > original_acc:
                 logger.info(f"Using post-processed predictions (improved accuracy: "
-                          f"{smoothed_acc:.4f} vs {original_acc:.4f})")
+                        f"{smoothed_acc:.4f} vs {original_acc:.4f})")
                 y_pred = y_pred_smoothed
         
         # Evaluate model
         results = self.evaluator.evaluate_model(y_test, y_pred, model, self.feature_names)
+        
+        # Add the actual predictions and true labels to results for plotting
+        results['y_true'] = y_test
+        results['y_pred'] = y_pred
+        results['model'] = model
         
         # Save model and results if requested
         if save_model and model_dir:
@@ -111,6 +120,10 @@ class SleepStageClassifier:
             Dictionary containing model performance metrics
         """
         logger.info("Training hierarchical model")
+        
+        # Ensure feature names are preserved
+        if self.feature_names is None:
+            self.feature_names = X_train.columns.tolist()
         
         # Step 1: Train Wake vs Sleep classifier
         logger.info("Step 1: Training Wake vs Sleep classifier")
@@ -158,8 +171,13 @@ class SleepStageClassifier:
                           f"{smoothed_acc:.4f} vs {original_acc:.4f})")
                 y_pred = y_pred_smoothed
         
-        # Evaluate combined model
-        results = self.evaluator.evaluate_model(y_test, y_pred, None, self.feature_names)
+        # Evaluate combined model using wake_sleep_model for feature importance
+        results = self.evaluator.evaluate_model(y_test, y_pred, wake_sleep_model, self.feature_names)
+        
+        # Add the actual predictions and true labels to results for plotting
+        results['y_true'] = y_test
+        results['y_pred'] = y_pred
+        results['model'] = wake_sleep_model  # Use wake-sleep model for feature importance
         
         # Add hierarchical-specific metrics
         results['wake_sleep_model'] = wake_sleep_model
@@ -206,6 +224,7 @@ class SleepStageClassifier:
         X, feature_names = self._select_features(data, feature_combination, top_n_features)
         y = data['Sleep_Stage']
         
+        # Store feature names in the classifier instance
         self.feature_names = feature_names
         
         # Scale features if requested
@@ -378,6 +397,12 @@ class SleepStageClassifier:
             scaler_file = model_dir / f"{model_type}_scaler.joblib"
             joblib.dump(self.scaler, scaler_file)
         
+        # Save feature names
+        if self.feature_names is not None:
+            feature_names_file = model_dir / f"{model_type}_feature_names.joblib"
+            joblib.dump(self.feature_names, feature_names_file)
+            logger.info(f"Saved feature names to {feature_names_file}")
+        
         # Save results
         results_file = model_dir / f"{model_type}_results.txt"
         with open(results_file, 'w') as f:
@@ -401,6 +426,12 @@ class SleepStageClassifier:
         joblib.dump(wake_sleep_model, ws_file)
         joblib.dump(nrem_rem_model, nr_file)
         
+        # Save feature names
+        if self.feature_names is not None:
+            feature_names_file = model_dir / "hierarchical_feature_names.joblib"
+            joblib.dump(self.feature_names, feature_names_file)
+            logger.info(f"Saved feature names to {feature_names_file}")
+        
         logger.info(f"Saved hierarchical models to {model_dir}")
         
         # Save results
@@ -410,3 +441,18 @@ class SleepStageClassifier:
             f.write(f"Balanced Accuracy: {results['balanced_accuracy']:.4f}\n\n")
             f.write("Classification Report:\n")
             f.write(results['classification_report'])
+    
+    def get_predictions(self, model_type: str = 'standard') -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Get the predictions from the last trained model.
+        
+        Args:
+            model_type: Type of model ('standard' or 'hierarchical')
+            
+        Returns:
+            Tuple of (y_true, y_pred)
+        """
+        if not hasattr(self, '_last_results'):
+            raise ValueError("No model has been trained yet. Call train_standard_model or train_hierarchical_model first.")
+        
+        return self._last_results['y_true'], self._last_results['y_pred']

@@ -39,7 +39,7 @@ A machine learning pipeline for classifying sleep stages from mouse EEG/EMG data
 │
 ├── references/        <- Data dictionaries, manuals, and explanatory materials
 │
-├── reports/           <- Generated analysis as HTML, PDF, LaTeX, etc.
+├── reports/           <- Generated analysis as TXT, PNG, PDF, etc.
 │   └── figures/       <- Generated graphics and figures
 │
 ├── requirements.txt   <- The requirements file for reproducing the environment
@@ -63,7 +63,10 @@ A machine learning pipeline for classifying sleep stages from mouse EEG/EMG data
 │   │   ├── train_model.py
 │   │   └── evaluate_model.py
 │   │
-│   └── visualization/ <- Scripts to create exploratory and results visualizations
+│   ├── utils/         <- Scripts to analyze model performance
+│   │   └── analysis.py
+│   │
+│   └── visualization/ <- Scripts to create results visualizations
 │       └── visualize.py
 │
 └── scripts/           <- Command-line scripts for running the pipeline
